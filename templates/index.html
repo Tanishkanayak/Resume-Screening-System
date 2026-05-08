@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Resume Screening System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <header>
+    <div class="logo">🎯 TalentFilter</div>
+    <p class="tagline">AI-Powered Resume Screening System</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>📋 Job Description</h2>
+      <textarea id="jd" rows="6" placeholder="Paste the job description here..."></textarea>
+    </div>
+
+    <div class="card">
+      <h2>📁 Upload Resumes</h2>
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="resumeFiles" multiple accept=".docx,.txt" hidden>
+        <div onclick="document.getElementById('resumeFiles').click()">
+          <p>📂 Click to upload resumes</p>
+          <small>.docx and .txt files supported</small>
+        </div>
+      </div>
+      <div id="fileList"></div>
+    </div>
+
+    <button class="btn-screen" onclick="screenResumes()">
+      🔍 Screen Resumes
+    </button>
+
+    <div id="loader" class="loader hidden">
+      <div class="spinner"></div>
+      <p>Analyzing resumes...</p>
+    </div>
+
+    <div id="results"></div>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('resumeFiles');
+    const fileList = document.getElementById('fileList');
+
+    fileInput.addEventListener('change', () => {
+      fileList.innerHTML = '';
+      Array.from(fileInput.files).forEach(f => {
+        const tag = document.createElement('span');
+        tag.className = 'file-tag';
+        tag.textContent = '📄 ' + f.name;
+        fileList.appendChild(tag);
+      });
+    });
+
+    async function screenResumes() {
+      const jd = document.getElementById('jd').value.trim();
+      const files = fileInput.files;
+
+      if (!jd) return alert('Please enter a job description.');
+      if (!files.length) return alert('Please upload at least one resume.');
+
+      const formData = new FormData();
+      formData.append('job_description', jd);
+      Array.from(files).forEach(f => formData.append('resumes', f));
+
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('results').innerHTML = '';
+
+      try {
+        const res = await fetch('/screen', { method: 'POST', body: formData });
+        const data = await res.json();
+        document.getElementById('loader').classList.add('hidden');
+
+        if (data.error) return alert(data.error);
+        renderResults(data.results, data.jd_skills);
+      } catch (e) {
+        document.getElementById('loader').classList.add('hidden');
+        alert('Something went wrong. Is Flask running?');
+      }
+    }
+
+    function renderResults(results, jdSkills) {
+      const container = document.getElementById('results');
+      const shortlisted = results.filter(r => r.final_score >= 40).length;
+
+      let html = `
+        <div class="summary-bar">
+          <div class="summary-item"><span>${results.length}</span><small>Total</small></div>
+          <div class="summary-item green"><span>${shortlisted}</span><small>Shortlisted</small></div>
+          <div class="summary-item red"><span>${results.length - shortlisted}</span><small>Rejected</small></div>
+          <div class="summary-item blue"><span>${jdSkills.length}</span><small>JD Skills</small></div>
+        </div>
+        <h2 style="margin:2rem 0 1rem">📊 Candidate Rankings</h2>
+      `;
+
+      results.forEach((r, i) => {
+        const isShortlisted = r.final_score >= 40;
+        html += `
+          <div class="candidate-card ${isShortlisted ? 'shortlisted' : 'rejected'}">
+            <div class="candidate-header">
+              <div>
+                <h3>#${i+1} ${r.name}</h3>
+                <p class="meta">📧 ${r.email} &nbsp;|&nbsp; 📞 ${r.phone} &nbsp;|&nbsp; 📄 ${r.file}</p>
+              </div>
+              <div class="score-badge ${isShortlisted ? 'badge-green' : 'badge-red'}">
+                ${r.final_score}%<br><small>${r.status}</small>
+              </div>
+            </div>
+
+            <div class="score-bars">
+              <div class="score-row">
+                <span>TF-IDF Match</span>
+                <div class="bar"><div class="fill" style="width:${r.tfidf_score}%"></div></div>
+                <span>${r.tfidf_score}%</span>
+              </div>
+              <div class="score-row">
+                <span>Skill Match</span>
+                <div class="bar"><div class="fill green-fill" style="width:${r.skill_score}%"></div></div>
+                <span>${r.skill_score}%</span>
+              </div>
+            </div>
+
+            <div class="skills-section">
+              <div>
+                <p class="skills-label">✅ Matched Skills</p>
+                <div class="skills-wrap">
+                  ${r.matched_skills.length ? r.matched_skills.map(s => `<span class="skill-tag match">${s}</span>`).join('') : '<span class="none">None</span>'}
+                </div>
+              </div>
+              <div>
+                <p class="skills-label">❌ Missing Skills</p>
+                <div class="skills-wrap">
+                  ${r.missing_skills.length ? r.missing_skills.map(s => `<span class="skill-tag miss">${s}</span>`).join('') : '<span class="none">None</span>'}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+  </script>
+</body>
+</html>
