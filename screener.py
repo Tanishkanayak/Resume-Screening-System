@@ -23,7 +23,7 @@ STOP_WORDS = {
 
 # Common skills keyword bank
 SKILLS_BANK = [
-    "python", "java", "sql", "c++", "c", "javascript", "html", "css",
+    "python", "java", "sql", "CRM", "c++", "c", "javascript", "html", "css",
     "machine learning", "deep learning", "nlp", "data analysis", "pandas",
     "numpy", "scikit-learn", "tensorflow", "keras", "power bi", "tableau",
     "excel", "git", "github", "aws", "docker", "linux", "communication",
